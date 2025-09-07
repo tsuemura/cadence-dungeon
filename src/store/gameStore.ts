@@ -1,75 +1,104 @@
-import { create } from 'zustand';
 import { IndoorBikeData } from '../types/ftms';
 
 interface GameState {
   // Bluetooth接続状態
   isConnected: boolean;
-  setConnected: (connected: boolean) => void;
 
   // FTMSデータ
   bikeData: IndoorBikeData;
-  setBikeData: (data: IndoorBikeData) => void;
 
   // ゲーム状態
   gameStatus: 'idle' | 'playing' | 'paused' | 'gameover';
-  setGameStatus: (status: GameState['gameStatus']) => void;
 
   // スコア
   score: number;
   highScore: number;
-  addScore: (points: number) => void;
-  resetScore: () => void;
 
   // プレイヤー状態
   playerHealth: number;
-  setPlayerHealth: (health: number) => void;
-  damagePlayer: (damage: number) => void;
 
   // ゲーム設定
   difficulty: 'easy' | 'normal' | 'hard';
-  setDifficulty: (difficulty: GameState['difficulty']) => void;
 }
 
-export const useGameStore = create<GameState>((set, get) => ({
-  // Bluetooth接続状態
-  isConnected: false,
-  setConnected: (connected) => set({ isConnected: connected }),
+class GameStore {
+  private state: GameState;
+  private listeners: Array<() => void> = [];
 
-  // FTMSデータ
-  bikeData: {},
-  setBikeData: (data) => set({ bikeData: data }),
+  constructor() {
+    this.state = {
+      isConnected: false,
+      bikeData: {},
+      gameStatus: 'idle',
+      score: 0,
+      highScore: parseInt(localStorage.getItem('highScore') || '0'),
+      playerHealth: 100,
+      difficulty: 'normal',
+    };
+  }
 
-  // ゲーム状態
-  gameStatus: 'idle',
-  setGameStatus: (status) => set({ gameStatus: status }),
+  getState(): GameState {
+    return { ...this.state };
+  }
 
-  // スコア
-  score: 0,
-  highScore: parseInt(localStorage.getItem('highScore') || '0'),
-  addScore: (points) => {
-    const newScore = get().score + points;
-    const currentHighScore = get().highScore;
+  private setState(newState: Partial<GameState>) {
+    this.state = { ...this.state, ...newState };
+    this.listeners.forEach(listener => listener());
+  }
+
+  subscribe(listener: () => void) {
+    this.listeners.push(listener);
+    return () => {
+      const index = this.listeners.indexOf(listener);
+      if (index > -1) {
+        this.listeners.splice(index, 1);
+      }
+    };
+  }
+
+  // Actions
+  setConnected(connected: boolean) {
+    this.setState({ isConnected: connected });
+  }
+
+  setBikeData(data: IndoorBikeData) {
+    this.setState({ bikeData: data });
+  }
+
+  setGameStatus(status: GameState['gameStatus']) {
+    this.setState({ gameStatus: status });
+  }
+
+  addScore(points: number) {
+    const newScore = this.state.score + points;
+    const currentHighScore = this.state.highScore;
     if (newScore > currentHighScore) {
       localStorage.setItem('highScore', newScore.toString());
-      set({ score: newScore, highScore: newScore });
+      this.setState({ score: newScore, highScore: newScore });
     } else {
-      set({ score: newScore });
+      this.setState({ score: newScore });
     }
-  },
-  resetScore: () => set({ score: 0 }),
+  }
 
-  // プレイヤー状態
-  playerHealth: 100,
-  setPlayerHealth: (health) => set({ playerHealth: Math.max(0, Math.min(100, health)) }),
-  damagePlayer: (damage) => {
-    const newHealth = get().playerHealth - damage;
-    set({ playerHealth: Math.max(0, newHealth) });
+  resetScore() {
+    this.setState({ score: 0 });
+  }
+
+  setPlayerHealth(health: number) {
+    this.setState({ playerHealth: Math.max(0, Math.min(100, health)) });
+  }
+
+  damagePlayer(damage: number) {
+    const newHealth = this.state.playerHealth - damage;
+    this.setState({ playerHealth: Math.max(0, newHealth) });
     if (newHealth <= 0) {
-      set({ gameStatus: 'gameover' });
+      this.setState({ gameStatus: 'gameover' });
     }
-  },
+  }
 
-  // ゲーム設定
-  difficulty: 'normal',
-  setDifficulty: (difficulty) => set({ difficulty }),
-}));
+  setDifficulty(difficulty: GameState['difficulty']) {
+    this.setState({ difficulty });
+  }
+}
+
+export const gameStore = new GameStore();

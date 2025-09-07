@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { useGameStore } from '../../store/gameStore';
+import { gameStore } from '../../store/gameStore';
 
 export class GameOverScene extends Phaser.Scene {
   constructor() {
@@ -8,7 +8,7 @@ export class GameOverScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.cameras.main;
-    const store = useGameStore.getState();
+    const state = gameStore.getState();
 
     // 背景
     const bg = this.add.graphics();
@@ -26,7 +26,7 @@ export class GameOverScene extends Phaser.Scene {
     gameOverText.setOrigin(0.5, 0.5);
 
     // スコア表示
-    const scoreText = this.add.text(width / 2, height / 2, `Score: ${store.score}`, {
+    const scoreText = this.add.text(width / 2, height / 2, `Score: ${state.score}`, {
       fontSize: '32px',
       fontFamily: 'Arial',
       color: '#ffffff'
@@ -34,7 +34,7 @@ export class GameOverScene extends Phaser.Scene {
     scoreText.setOrigin(0.5, 0.5);
 
     // ハイスコア表示
-    const highScoreText = this.add.text(width / 2, height / 2 + 50, `High Score: ${store.highScore}`, {
+    const highScoreText = this.add.text(width / 2, height / 2 + 50, `High Score: ${state.highScore}`, {
       fontSize: '24px',
       fontFamily: 'Arial',
       color: '#ffd700'
@@ -88,9 +88,9 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     // ゲーム統計
-    if (store.bikeData.totalDistance) {
+    if (state.bikeData.totalDistance) {
       const distanceText = this.add.text(width / 2, height - 80, 
-        `Distance: ${Math.round(store.bikeData.totalDistance)}m`, {
+        `Distance: ${Math.round(state.bikeData.totalDistance)}m`, {
         fontSize: '18px',
         fontFamily: 'Arial',
         color: '#ffffff'
@@ -98,9 +98,9 @@ export class GameOverScene extends Phaser.Scene {
       distanceText.setOrigin(0.5, 0.5);
     }
 
-    if (store.bikeData.totalEnergy) {
+    if (state.bikeData.totalEnergy) {
       const caloriesText = this.add.text(width / 2, height - 50, 
-        `Calories: ${Math.round(store.bikeData.totalEnergy)} kcal`, {
+        `Calories: ${Math.round(state.bikeData.totalEnergy)} kcal`, {
         fontSize: '18px',
         fontFamily: 'Arial',
         color: '#ffffff'

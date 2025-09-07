@@ -2,7 +2,7 @@ import './styles/main.css';
 import Phaser from 'phaser';
 import { gameConfig } from './game/config';
 import { FTMSManager } from './bluetooth/FTMSManager';
-import { useGameStore } from './store/gameStore';
+import { gameStore } from './store/gameStore';
 
 // FTMSマネージャーのインスタンス
 const ftmsManager = new FTMSManager();
@@ -79,17 +79,15 @@ function setupEventListeners() {
 
 // FTMSコールバックの設定
 function setupFTMSCallbacks() {
-  const store = useGameStore.getState();
-  
   // データ受信時のコールバック
   ftmsManager.onDataReceived((data) => {
-    store.setBikeData(data);
+    gameStore.setBikeData(data);
     updateBikeDataDisplay(data);
   });
 
   // 接続状態変更時のコールバック
   ftmsManager.onConnectionChange((connected) => {
-    store.setConnected(connected);
+    gameStore.setConnected(connected);
     updateConnectionStatus(connected);
   });
 }

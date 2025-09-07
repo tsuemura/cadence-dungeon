@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { useGameStore } from '../../store/gameStore';
+import { gameStore } from '../../store/gameStore';
 
 export class MenuScene extends Phaser.Scene {
   private startButton?: Phaser.GameObjects.Text;
@@ -36,9 +36,9 @@ export class MenuScene extends Phaser.Scene {
     subtitle.setOrigin(0.5, 0.5);
 
     // 接続状態表示
-    const store = useGameStore.getState();
-    const statusText = store.isConnected ? '接続済み' : '未接続';
-    const statusColor = store.isConnected ? '#4ade80' : '#f87171';
+    const state = gameStore.getState();
+    const statusText = state.isConnected ? '接続済み' : '未接続';
+    const statusColor = state.isConnected ? '#4ade80' : '#f87171';
     
     this.connectionStatus = this.add.text(width / 2, height / 2, `Bluetooth: ${statusText}`, {
       fontSize: '20px',
@@ -88,7 +88,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // ハイスコア表示
-    const highScore = store.highScore;
+    const highScore = state.highScore;
     this.add.text(width - 20, 20, `ハイスコア: ${highScore}`, {
       fontSize: '18px',
       fontFamily: 'Arial',
@@ -105,9 +105,9 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private updateConnectionStatus() {
-    const store = useGameStore.getState();
-    const statusText = store.isConnected ? '接続済み' : '未接続';
-    const statusColor = store.isConnected ? '#4ade80' : '#f87171';
+    const state = gameStore.getState();
+    const statusText = state.isConnected ? '接続済み' : '未接続';
+    const statusColor = state.isConnected ? '#4ade80' : '#f87171';
     
     if (this.connectionStatus) {
       this.connectionStatus.setText(`Bluetooth: ${statusText}`);

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { useGameStore } from '../../store/gameStore';
+import { gameStore } from '../../store/gameStore';
 
 export class GameScene extends Phaser.Scene {
   private player?: Phaser.Physics.Arcade.Sprite;
@@ -21,10 +21,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    const store = useGameStore.getState();
-    store.setGameStatus('playing');
-    store.resetScore();
-    store.setPlayerHealth(100);
+    gameStore.setGameStatus('playing');
+    gameStore.resetScore();
+    gameStore.setPlayerHealth(100);
 
     // 背景
     this.add.rectangle(0, 0, 1024, 576, 0x87ceeb).setOrigin(0, 0);
@@ -109,14 +108,14 @@ export class GameScene extends Phaser.Scene {
   update() {
     if (!this.player || !this.cursors) return;
 
-    const store = useGameStore.getState();
+    const state = gameStore.getState();
     
-    if (store.gameStatus !== 'playing') {
+    if (state.gameStatus !== 'playing') {
       return;
     }
 
     // キーボード操作（デバッグ用）
-    if (!store.isConnected) {
+    if (!state.isConnected) {
       if (this.cursors.left.isDown) {
         this.player.setVelocityX(-this.baseSpeed);
       } else if (this.cursors.right.isDown) {
@@ -132,10 +131,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateFromBikeData() {
-    const store = useGameStore.getState();
-    const bikeData = store.bikeData;
+    const state = gameStore.getState();
+    const bikeData = state.bikeData;
 
-    if (!this.player || !store.isConnected) return;
+    if (!this.player || !state.isConnected) return;
 
     // ケイデンスによる移動
     if (bikeData.instantaneousCadence !== undefined) {
@@ -194,19 +193,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateUI() {
-    const store = useGameStore.getState();
+    const state = gameStore.getState();
     
     if (this.scoreText) {
-      this.scoreText.setText(`Score: ${store.score}`);
+      this.scoreText.setText(`Score: ${state.score}`);
     }
 
     if (this.cadenceText) {
-      const cadence = store.bikeData.instantaneousCadence || 0;
+      const cadence = state.bikeData.instantaneousCadence || 0;
       this.cadenceText.setText(`Cadence: ${Math.round(cadence)} rpm`);
     }
 
     if (this.powerText) {
-      const power = store.bikeData.instantaneousPower || 0;
+      const power = state.bikeData.instantaneousPower || 0;
       this.powerText.setText(`Power: ${Math.round(power)} W`);
     }
 
@@ -216,8 +215,8 @@ export class GameScene extends Phaser.Scene {
   private updateHealthBar() {
     if (!this.healthBar) return;
 
-    const store = useGameStore.getState();
-    const health = store.playerHealth;
+    const state = gameStore.getState();
+    const health = state.playerHealth;
 
     this.healthBar.clear();
     
@@ -234,8 +233,7 @@ export class GameScene extends Phaser.Scene {
   private collectCoin(_player: any, coin: any) {
     coin.disableBody(true, true);
     
-    const store = useGameStore.getState();
-    store.addScore(10);
+    gameStore.addScore(10);
 
     // 新しいコインを生成
     const x = Phaser.Math.Between(100, 900);
@@ -244,8 +242,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private hitEnemy(player: any, enemy: any) {
-    const store = useGameStore.getState();
-    store.damagePlayer(10);
+    gameStore.damagePlayer(10);
 
     // ノックバック
     if (player.x < enemy.x) {
@@ -264,7 +261,8 @@ export class GameScene extends Phaser.Scene {
       yoyo: true
     });
 
-    if (store.playerHealth <= 0) {
+    const state = gameStore.getState();
+    if (state.playerHealth <= 0) {
       this.scene.start('GameOverScene');
     }
   }

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+      color: white;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Cadence Dungeon - Test Page</h1>
+    <p>もしこのページが正しく表示されていれば、サーバーは正常に動作しています。</p>
+    <button id="test-btn">テストボタン</button>
+    <div id="output"></div>
+  </div>
+
+  <script>
+    console.log('Test page loaded');
+    document.getElementById('test-btn').addEventListener('click', function() {
+      document.getElementById('output').innerHTML = '<p>JavaScriptが正常に動作しています！</p>';
+    });
+  </script>
+</body>
+</html>

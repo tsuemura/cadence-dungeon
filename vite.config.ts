@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   server: {
-    https: true, // Web Bluetooth APIはHTTPSが必要
+    https: false, // 一時的にHTTPで起動
     port: 3000
   },
   build: {
