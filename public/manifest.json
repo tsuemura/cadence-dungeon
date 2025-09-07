@@ -1,0 +1,23 @@
+{
+  "name": "Cadence Dungeon",
+  "short_name": "CadenceDungeon",
+  "description": "FTMSデバイスで操作するブラウザゲーム",
+  "theme_color": "#667eea",
+  "background_color": "#667eea",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
