@@ -2,19 +2,13 @@ import Phaser from 'phaser';
 import { gameStore } from '../../store/gameStore';
 
 export class GameScene extends Phaser.Scene {
-  private player?: Phaser.Physics.Arcade.Sprite;
-  private enemies?: Phaser.Physics.Arcade.Group;
-  private coins?: Phaser.Physics.Arcade.Group;
-  private platforms?: Phaser.Physics.Arcade.StaticGroup;
-  private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
-  
-  private scoreText?: Phaser.GameObjects.Text;
-  private healthBar?: Phaser.GameObjects.Graphics;
+  private moneyText?: Phaser.GameObjects.Text;
   private cadenceText?: Phaser.GameObjects.Text;
-  private powerText?: Phaser.GameObjects.Text;
+  private powerGenText?: Phaser.GameObjects.Text;
+  private statusText?: Phaser.GameObjects.Text;
+  private shopButton?: Phaser.GameObjects.Text;
   
-  private baseSpeed = 160;
-  private jumpPower = 330;
+  // private moneyGenerationTimer?: Phaser.Time.TimerEvent;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -22,256 +16,206 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     gameStore.setGameStatus('playing');
-    gameStore.resetScore();
-    gameStore.setPlayerHealth(100);
+    gameStore.resetMoney();
 
     // 背景
-    this.add.rectangle(0, 0, 1024, 576, 0x87ceeb).setOrigin(0, 0);
+    this.add.rectangle(0, 0, 1024, 576, 0x1a1a2e).setOrigin(0, 0);
 
-    // プラットフォーム
-    this.platforms = this.physics.add.staticGroup();
-    
-    // 地面
-    for (let i = 0; i < 32; i++) {
-      this.platforms.create(i * 32 + 16, 560, 'ground');
-    }
+    // タイトル
+    this.add.text(512, 50, '発電所', {
+      fontSize: '36px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
 
-    // 空中プラットフォーム
-    this.platforms.create(200, 400, 'platform');
-    this.platforms.create(500, 320, 'platform');
-    this.platforms.create(750, 250, 'platform');
-    this.platforms.create(350, 200, 'platform');
-
-    // プレイヤー
-    this.player = this.physics.add.sprite(100, 450, 'player');
-    this.player.setBounce(0.2);
-    this.player.setCollideWorldBounds(true);
-
-    // 敵グループ
-    this.enemies = this.physics.add.group({
-      key: 'enemy',
-      repeat: 3,
-      setXY: { x: 300, y: 0, stepX: 200 }
-    });
-
-    this.enemies.children.entries.forEach((enemy) => {
-      const e = enemy as Phaser.Physics.Arcade.Sprite;
-      e.setBounce(1);
-      e.setCollideWorldBounds(true);
-      e.setVelocity(Phaser.Math.Between(-100, 100), 20);
-    });
-
-    // コイングループ
-    this.coins = this.physics.add.group({
-      key: 'coin',
-      repeat: 7,
-      setXY: { x: 150, y: 0, stepX: 100 }
-    });
-
-    this.coins.children.entries.forEach((coin) => {
-      const c = coin as Phaser.Physics.Arcade.Sprite;
-      c.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-    });
-
-    // 衝突設定
-    this.physics.add.collider(this.player, this.platforms);
-    this.physics.add.collider(this.enemies, this.platforms);
-    this.physics.add.collider(this.coins, this.platforms);
-
-    // オーバーラップ設定
-    this.physics.add.overlap(this.player, this.coins, this.collectCoin, undefined, this);
-    this.physics.add.overlap(this.player, this.enemies, this.hitEnemy, undefined, this);
-
-    // キーボード入力
-    this.cursors = this.input.keyboard?.createCursorKeys();
+    // 説明テキスト
+    this.add.text(512, 120, 'ケイデンス（RPM）に応じて1秒ごとにコインが貯まります', {
+      fontSize: '18px',
+      color: '#cccccc'
+    }).setOrigin(0.5);
 
     // UI作成
     this.createUI();
 
-    // ゲームループ
+    // お金生成タイマー（1秒ごと）
     this.time.addEvent({
-      delay: 100,
-      callback: this.updateFromBikeData,
+      delay: 1000,
+      callback: this.generateMoney,
       callbackScope: this,
       loop: true
     });
 
-    // 敵の生成
+    // UIアップデートタイマー（100msごと）
     this.time.addEvent({
-      delay: 3000,
-      callback: this.spawnEnemy,
+      delay: 100,
+      callback: this.updateUI,
       callbackScope: this,
       loop: true
     });
   }
 
   update() {
-    if (!this.player || !this.cursors) return;
-
     const state = gameStore.getState();
     
     if (state.gameStatus !== 'playing') {
       return;
     }
+  }
 
-    // キーボード操作（デバッグ用）
-    if (!state.isConnected) {
-      if (this.cursors.left.isDown) {
-        this.player.setVelocityX(-this.baseSpeed);
-      } else if (this.cursors.right.isDown) {
-        this.player.setVelocityX(this.baseSpeed);
-      } else {
-        this.player.setVelocityX(0);
-      }
-
-      if (this.cursors.up.isDown && this.player.body?.touching.down) {
-        this.player.setVelocityY(-this.jumpPower);
-      }
+  private generateMoney() {
+    const state = gameStore.getState();
+    const bikeData = state.bikeData;
+    
+    // ケイデンス（RPM）からお金を計算
+    const cadence = bikeData.instantaneousCadence || 0;
+    const moneyGenerated = this.calculateMoneyFromCadence(cadence);
+    
+    if (moneyGenerated > 0) {
+      gameStore.addMoney(moneyGenerated);
     }
   }
 
-  private updateFromBikeData() {
+  private calculateMoneyFromCadence(cadence: number): number {
     const state = gameStore.getState();
-    const bikeData = state.bikeData;
-
-    if (!this.player || !state.isConnected) return;
-
-    // ケイデンスによる移動
-    if (bikeData.instantaneousCadence !== undefined) {
-      const cadence = bikeData.instantaneousCadence;
-      const speed = (cadence / 90) * this.baseSpeed * 2; // 90rpmで通常速度
-      this.player.setVelocityX(speed);
-    }
-
-    // パワーによるジャンプ
-    if (bikeData.instantaneousPower !== undefined && this.player.body?.touching.down) {
-      if (bikeData.instantaneousPower > 150) { // 150W以上でジャンプ
-        const jumpStrength = Math.min(bikeData.instantaneousPower * 2, 600);
-        this.player.setVelocityY(-jumpStrength);
+    const inventory = state.inventory;
+    
+    let money = 0;
+    
+    // 自動発電（ケイデンス0でも発電）
+    money += inventory.automationLevel;
+    
+    // ケイデンスによる発電
+    if (cadence >= 10) {
+      let cadenceMoney = cadence - 10;
+      
+      // 高ケイデンスボーナス
+      if (cadence >= 100) {
+        cadenceMoney *= 3;
+      } else if (cadence >= 80) {
+        cadenceMoney *= 2;
       }
+      
+      money += cadenceMoney;
     }
-
-    // UI更新
-    this.updateUI();
+    
+    // 効率倍率を適用
+    money *= inventory.efficiencyMultiplier;
+    
+    return Math.floor(money);
   }
 
   private createUI() {
-    // スコア
-    this.scoreText = this.add.text(16, 16, 'Score: 0', {
+    // お金表示
+    this.moneyText = this.add.text(50, 200, '💰0', {
+      fontSize: '48px',
+      color: '#00ff00',
+      stroke: '#000000',
+      strokeThickness: 4
+    });
+
+    // ケイデンス表示
+    this.cadenceText = this.add.text(50, 280, 'ケイデンス: 0 rpm', {
       fontSize: '24px',
       color: '#ffffff',
       stroke: '#000000',
-      strokeThickness: 4
+      strokeThickness: 3
     });
 
-    // ヘルスバー
-    this.add.text(16, 50, 'Health:', {
+    // 発電量表示
+    this.powerGenText = this.add.text(50, 320, '発電量: 💰0/秒', {
+      fontSize: '20px',
+      color: '#ffff00',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+
+    // 接続状態表示
+    this.statusText = this.add.text(50, 360, '未接続', {
+      fontSize: '18px',
+      color: '#ff0000',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+
+    // ショップボタン
+    this.shopButton = this.add.text(50, 400, '🛒 ショップ', {
       fontSize: '20px',
       color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 4
+      backgroundColor: '#e67e22',
+      padding: { x: 15, y: 10 }
+    });
+    this.shopButton.setInteractive({ useHandCursor: true });
+    this.shopButton.on('pointerdown', () => {
+      this.scene.start('ShopScene');
+    });
+    
+    // ホバーエフェクト
+    this.shopButton.on('pointerover', () => {
+      this.shopButton?.setBackgroundColor('#d35400');
+    });
+    this.shopButton.on('pointerout', () => {
+      this.shopButton?.setBackgroundColor('#e67e22');
     });
 
-    this.healthBar = this.add.graphics();
-    this.updateHealthBar();
-
-    // ケイデンス表示
-    this.cadenceText = this.add.text(16, 90, 'Cadence: 0 rpm', {
+    // 効率表示
+    this.add.text(50, 460, '効率:', {
       fontSize: '18px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
+      color: '#cccccc'
     });
-
-    // パワー表示
-    this.powerText = this.add.text(16, 120, 'Power: 0 W', {
-      fontSize: '18px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
+    
+    this.add.text(50, 490, '• 10rpm未満: 💰0/秒', {
+      fontSize: '14px',
+      color: '#999999'
+    });
+    
+    this.add.text(50, 510, '• 10-79rpm: 💰(rpm-10)/秒', {
+      fontSize: '14px',
+      color: '#999999'
+    });
+    
+    this.add.text(50, 530, '• 80-99rpm: 💰(rpm-10)×2/秒', {
+      fontSize: '14px',
+      color: '#999999'
+    });
+    
+    this.add.text(50, 550, '• 100rpm以上: 💰(rpm-10)×3/秒', {
+      fontSize: '14px',
+      color: '#999999'
     });
   }
 
   private updateUI() {
     const state = gameStore.getState();
+    const bikeData = state.bikeData;
     
-    if (this.scoreText) {
-      this.scoreText.setText(`Score: ${state.score}`);
+    // お金表示更新
+    if (this.moneyText) {
+      this.moneyText.setText(`💰${state.money.toLocaleString()}`);
     }
 
+    // ケイデンス表示更新
     if (this.cadenceText) {
-      const cadence = state.bikeData.instantaneousCadence || 0;
-      this.cadenceText.setText(`Cadence: ${Math.round(cadence)} rpm`);
+      const cadence = bikeData.instantaneousCadence || 0;
+      this.cadenceText.setText(`ケイデンス: ${Math.round(cadence)} rpm`);
     }
 
-    if (this.powerText) {
-      const power = state.bikeData.instantaneousPower || 0;
-      this.powerText.setText(`Power: ${Math.round(power)} W`);
+    // 発電量表示更新
+    if (this.powerGenText) {
+      const cadence = bikeData.instantaneousCadence || 0;
+      const moneyPerSecond = this.calculateMoneyFromCadence(cadence);
+      this.powerGenText.setText(`発電量: 💰${moneyPerSecond}/秒`);
     }
 
-    this.updateHealthBar();
-  }
-
-  private updateHealthBar() {
-    if (!this.healthBar) return;
-
-    const state = gameStore.getState();
-    const health = state.playerHealth;
-
-    this.healthBar.clear();
-    
-    // 背景
-    this.healthBar.fillStyle(0x000000, 0.5);
-    this.healthBar.fillRect(100, 54, 204, 20);
-    
-    // ヘルスバー
-    const barColor = health > 60 ? 0x00ff00 : health > 30 ? 0xffff00 : 0xff0000;
-    this.healthBar.fillStyle(barColor, 1);
-    this.healthBar.fillRect(102, 56, health * 2, 16);
-  }
-
-  private collectCoin(_player: any, coin: any) {
-    coin.disableBody(true, true);
-    
-    gameStore.addScore(10);
-
-    // 新しいコインを生成
-    const x = Phaser.Math.Between(100, 900);
-    const newCoin = this.coins?.create(x, 16, 'coin');
-    newCoin?.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-  }
-
-  private hitEnemy(player: any, enemy: any) {
-    gameStore.damagePlayer(10);
-
-    // ノックバック
-    if (player.x < enemy.x) {
-      player.setVelocityX(-200);
-    } else {
-      player.setVelocityX(200);
+    // 接続状態表示更新
+    if (this.statusText) {
+      if (state.isConnected) {
+        this.statusText.setText('FTMS接続中');
+        this.statusText.setColor('#00ff00');
+      } else {
+        this.statusText.setText('未接続（デバッグモード）');
+        this.statusText.setColor('#ff0000');
+      }
     }
-    player.setVelocityY(-200);
-
-    // 点滅エフェクト
-    this.tweens.add({
-      targets: player,
-      alpha: 0,
-      duration: 100,
-      repeat: 3,
-      yoyo: true
-    });
-
-    const state = gameStore.getState();
-    if (state.playerHealth <= 0) {
-      this.scene.start('GameOverScene');
-    }
-  }
-
-  private spawnEnemy() {
-    const x = Phaser.Math.Between(100, 900);
-    const enemy = this.enemies?.create(x, 0, 'enemy');
-    enemy?.setBounce(1);
-    enemy?.setCollideWorldBounds(true);
-    enemy?.setVelocity(Phaser.Math.Between(-150, 150), 20);
   }
 }

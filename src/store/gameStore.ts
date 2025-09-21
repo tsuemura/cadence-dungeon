@@ -1,4 +1,5 @@
 import { IndoorBikeData } from '../types/ftms';
+import { ShopItem, PlayerInventory } from '../types/shop';
 
 interface GameState {
   // Bluetooth接続状態
@@ -13,6 +14,12 @@ interface GameState {
   // スコア
   score: number;
   highScore: number;
+
+  // お金（発電所システム用）
+  money: number;
+
+  // ショップとインベントリ
+  inventory: PlayerInventory;
 
   // プレイヤー状態
   playerHealth: number;
@@ -32,6 +39,12 @@ class GameStore {
       gameStatus: 'idle',
       score: 0,
       highScore: parseInt(localStorage.getItem('highScore') || '0'),
+      money: 0,
+      inventory: {
+        items: [],
+        efficiencyMultiplier: 1.0,
+        automationLevel: 0
+      },
       playerHealth: 100,
       difficulty: 'normal',
     };
@@ -84,6 +97,15 @@ class GameStore {
     this.setState({ score: 0 });
   }
 
+  addMoney(amount: number) {
+    const newMoney = this.state.money + amount;
+    this.setState({ money: newMoney });
+  }
+
+  resetMoney() {
+    this.setState({ money: 0 });
+  }
+
   setPlayerHealth(health: number) {
     this.setState({ playerHealth: Math.max(0, Math.min(100, health)) });
   }
@@ -98,6 +120,64 @@ class GameStore {
 
   setDifficulty(difficulty: GameState['difficulty']) {
     this.setState({ difficulty });
+  }
+
+  // ショップ関連メソッド
+  buyItem(item: ShopItem): boolean {
+    const currentMoney = this.state.money;
+    
+    // お金が足りない場合は購入失敗
+    if (currentMoney < item.price) {
+      return false;
+    }
+
+    // 既に持っているアイテムは購入不可
+    const alreadyOwned = this.state.inventory.items.some(ownedItem => ownedItem.id === item.id);
+    if (alreadyOwned) {
+      return false;
+    }
+
+    // お金を減らしてアイテムを追加
+    const newMoney = currentMoney - item.price;
+    const newItem = { ...item, owned: true };
+    const newInventory = {
+      ...this.state.inventory,
+      items: [...this.state.inventory.items, newItem]
+    };
+
+    // 効果を適用
+    this.applyItemEffects(newInventory);
+
+    this.setState({
+      money: newMoney,
+      inventory: newInventory
+    });
+
+    return true;
+  }
+
+  private applyItemEffects(inventory: PlayerInventory) {
+    let efficiencyMultiplier = 1.0;
+    let automationLevel = 0;
+
+    inventory.items.forEach(item => {
+      if (item.effect.type === 'multiplier') {
+        efficiencyMultiplier *= item.effect.value;
+      } else if (item.effect.type === 'automation') {
+        automationLevel += item.effect.value;
+      }
+    });
+
+    inventory.efficiencyMultiplier = efficiencyMultiplier;
+    inventory.automationLevel = automationLevel;
+  }
+
+  spendMoney(amount: number): boolean {
+    if (this.state.money >= amount) {
+      this.setState({ money: this.state.money - amount });
+      return true;
+    }
+    return false;
   }
 }
 
